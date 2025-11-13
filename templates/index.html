@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>两组数据统计比较分析</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .container-fluid {
+            padding: 20px;
+        }
+        .card {
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .file-upload-area {
+            border: 2px dashed #ccc;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            transition: border-color 0.3s;
+            cursor: pointer;
+        }
+        .file-upload-area:hover {
+            border-color: #007bff;
+        }
+        .file-upload-area.dragover {
+            border-color: #007bff;
+            background-color: #f8f9fa;
+        }
+        .result-area {
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            padding: 15px;
+            min-height: 300px;
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+            font-size: 14px;
+        }
+        .table-area {
+            overflow-x: auto;
+        }
+        .three-line-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        .three-line-table th,
+        .three-line-table td {
+            border: none;
+            padding: 8px 12px;
+            text-align: left;
+        }
+        .three-line-table th {
+            border-bottom: 2px solid #333;
+            border-top: 2px solid #333;
+            font-weight: 600;
+        }
+        .three-line-table tr:last-child td {
+            border-bottom: 2px solid #333;
+        }
+        .variable-checkbox {
+            margin-right: 5px;
+        }
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        .alert {
+            margin-top: 10px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <h1 class="text-center mb-4">两组数据统计比较分析</h1>
+
+        <!-- 文件上传区域 -->
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">第一组数据</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="file-upload-area" onclick="document.getElementById('file1').click()"
+                             ondrop="handleDrop(event, 1)" ondragover="handleDragOver(event)"
+                             ondragleave="handleDragLeave(event)">
+                            <input type="file" id="file1" accept=".csv" style="display: none;" onchange="handleFileUpload(event, 1)">
+                            <i class="fas fa-cloud-upload-alt fa-3x mb-3"></i>
+                            <p>点击或拖拽CSV文件到此处</p>
+                            <small class="text-muted">支持 .csv 格式</small>
+                        </div>
+                        <div id="file1-info" class="mt-3" style="display: none;">
+                            <div class="alert alert-success">
+                                <strong>已加载：</strong> <span id="file1-name"></span>
+                                <br><strong>数据形状：</strong> <span id="file1-shape"></span>
+                                <br><strong>列信息：</strong> <span id="file1-columns"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0">第二组数据</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="file-upload-area" onclick="document.getElementById('file2').click()"
+                             ondrop="handleDrop(event, 2)" ondragover="handleDragOver(event)"
+                             ondragleave="handleDragLeave(event)">
+                            <input type="file" id="file2" accept=".csv" style="display: none;" onchange="handleFileUpload(event, 2)">
+                            <i class="fas fa-cloud-upload-alt fa-3x mb-3"></i>
+                            <p>点击或拖拽CSV文件到此处</p>
+                            <small class="text-muted">支持 .csv 格式</small>
+                        </div>
+                        <div id="file2-info" class="mt-3" style="display: none;">
+                            <div class="alert alert-success">
+                                <strong>已加载：</strong> <span id="file2-name"></span>
+                                <br><strong>数据形状：</strong> <span id="file2-shape"></span>
+                                <br><strong>列信息：</strong> <span id="file2-columns"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 变量选择区域 -->
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">变量选择</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <button class="btn btn-primary" onclick="showVariableSelection('numeric')">
+                            选择数值变量
+                        </button>
+                        <span class="ms-3">已选择：<strong id="numeric-count">0</strong> 个</span>
+                    </div>
+                    <div class="col-md-6">
+                        <button class="btn btn-success" onclick="showVariableSelection('categorical')">
+                            选择分类变量
+                        </button>
+                        <span class="ms-3">已选择：<strong id="categorical-count">0</strong> 个</span>
+                    </div>
+                </div>
+
+                <div id="selected-variables" class="row" style="display: none;">
+                    <div class="col-md-6">
+                        <strong>已选数值变量：</strong>
+                        <div id="selected-numeric-list" class="mt-2"></div>
+                    </div>
+                    <div class="col-md-6">
+                        <strong>已选分类变量：</strong>
+                        <div id="selected-categorical-list" class="mt-2"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 分析按钮 -->
+        <div class="text-center mb-4">
+            <button class="btn btn-lg btn-warning" onclick="runAnalysis()">
+                <i class="fas fa-chart-bar"></i> 执行统计分析
+            </button>
+        </div>
+
+        <!-- 结果显示区域 -->
+        <div class="card">
+            <div class="card-header bg-dark text-white">
+                <h5 class="mb-0">分析结果</h5>
+            </div>
+            <div class="card-body">
+                <div class="loading" id="loading">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">分析中...</span>
+                    </div>
+                    <p class="mt-2">正在执行统计分析，请稍候...</p>
+                </div>
+                <div id="results-container" style="display: none;">
+                    <div class="result-area" id="results-text"></div>
+
+                    <div class="table-area">
+                        <h5>统计三线表</h5>
+                        <table class="three-line-table" id="three-line-table">
+                            <thead>
+                                <tr>
+                                    <th>variables</th>
+                                    <th>level</th>
+                                    <th>0</th>
+                                    <th>1</th>
+                                    <th>p</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table-body">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 变量选择模态框 -->
+    <div class="modal fade" id="variableModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="variableModalTitle">选择变量</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="variable-list" style="max-height: 400px; overflow-y: auto;">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" onclick="confirmVariableSelection()">确认选择</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
+
+    <script>
+        let currentVariableType = null;
+        let commonColumns = [];
+        let selectedNumericVars = [];
+        let selectedCategoricalVars = [];
+
+        // 文件拖拽处理
+        function handleDragOver(event) {
+            event.preventDefault();
+            event.currentTarget.classList.add('dragover');
+        }
+
+        function handleDragLeave(event) {
+            event.currentTarget.classList.remove('dragover');
+        }
+
+        function handleDrop(event, group) {
+            event.preventDefault();
+            event.currentTarget.classList.remove('dragover');
+
+            const files = event.dataTransfer.files;
+            if (files.length > 0 && files[0].type === 'text/csv') {
+                const fileInput = document.getElementById(`file${group}`);
+                fileInput.files = files;
+                handleFileUpload({ target: fileInput }, group);
+            }
+        }
+
+        // 文件上传处理
+        function handleFileUpload(event, group) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('group', group);
+
+            fetch('/upload_file', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const infoDiv = document.getElementById(`file${group}-info`);
+                    const nameSpan = document.getElementById(`file${group}-name`);
+                    const shapeSpan = document.getElementById(`file${group}-shape`);
+                    const columnsSpan = document.getElementById(`file${group}-columns`);
+
+                    nameSpan.textContent = file.name;
+                    shapeSpan.textContent = `${data.data.shape[0]}行 × ${data.data.shape[1]}列`;
+                    columnsSpan.textContent = data.data.columns.slice(0, 5).map(col => col.name).join(', ') +
+                                            (data.data.columns.length > 5 ? '...' : '');
+
+                    infoDiv.style.display = 'block';
+
+                    // 检查是否可以获取共同列
+                    checkCommonColumns();
+                } else {
+                    alert('文件上传失败：' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('文件上传失败');
+            });
+        }
+
+        // 检查共同列
+        function checkCommonColumns() {
+            fetch('/get_common_columns')
+            .then(response => response.json())
+            .then(data => {
+                if (!data.error) {
+                    commonColumns = data.columns;
+                }
+            })
+            .catch(error => console.error('Error:', error));
+        }
+
+        // 显示变量选择模态框
+        function showVariableSelection(type) {
+            currentVariableType = type;
+            const modal = new bootstrap.Modal(document.getElementById('variableModal'));
+
+            const title = document.getElementById('variableModalTitle');
+            const list = document.getElementById('variable-list');
+
+            title.textContent = type === 'numeric' ? '选择数值变量' : '选择分类变量';
+
+            if (commonColumns.length === 0) {
+                list.innerHTML = '<p class="text-muted">请先上传两个数据文件</p>';
+            } else {
+                let html = `
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>选择</th>
+                                <th>列名</th>
+                                <th>数据类型</th>
+                                <th>唯一值数量</th>
+                                <th>示例</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+
+                commonColumns.forEach(col => {
+                    const isSelected = (type === 'numeric' && selectedNumericVars.includes(col.name)) ||
+                                    (type === 'categorical' && selectedCategoricalVars.includes(col.name));
+
+                    html += `
+                        <tr>
+                            <td>
+                                <input type="checkbox" class="variable-checkbox" value="${col.name}"
+                                       ${isSelected ? 'checked' : ''} data-column="${col.name}">
+                            </td>
+                            <td>${col.name}</td>
+                            <td>${col.dtype1}/${col.dtype2}</td>
+                            <td>${col.unique_count1}/${col.unique_count2}</td>
+                            <td>${col.sample1}/${col.sample2}</td>
+                        </tr>
+                    `;
+                });
+
+                html += '</tbody></table>';
+                list.innerHTML = html;
+            }
+
+            modal.show();
+        }
+
+        // 确认变量选择
+        function confirmVariableSelection() {
+            const checkboxes = document.querySelectorAll('.variable-checkbox:checked');
+            const selectedVars = Array.from(checkboxes).map(cb => cb.dataset.column);
+
+            if (currentVariableType === 'numeric') {
+                selectedNumericVars = selectedVars;
+                document.getElementById('numeric-count').textContent = selectedVars.length;
+            } else {
+                selectedCategoricalVars = selectedVars;
+                document.getElementById('categorical-count').textContent = selectedVars.length;
+            }
+
+            updateSelectedVariablesDisplay();
+            bootstrap.Modal.getInstance(document.getElementById('variableModal')).hide();
+        }
+
+        // 更新已选变量显示
+        function updateSelectedVariablesDisplay() {
+            const container = document.getElementById('selected-variables');
+            const numericList = document.getElementById('selected-numeric-list');
+            const categoricalList = document.getElementById('selected-categorical-list');
+
+            if (selectedNumericVars.length > 0 || selectedCategoricalVars.length > 0) {
+                container.style.display = 'block';
+
+                numericList.innerHTML = selectedNumericVars.length > 0 ?
+                    selectedNumericVars.map(v => `<span class="badge bg-primary me-2">${v}</span>`).join('') :
+                    '<span class="text-muted">无</span>';
+
+                categoricalList.innerHTML = selectedCategoricalVars.length > 0 ?
+                    selectedCategoricalVars.map(v => `<span class="badge bg-success me-2">${v}</span>`).join('') :
+                    '<span class="text-muted">无</span>';
+            } else {
+                container.style.display = 'none';
+            }
+        }
+
+        // 执行分析
+        function runAnalysis() {
+            if (selectedNumericVars.length === 0 && selectedCategoricalVars.length === 0) {
+                alert('请先选择要分析的变量');
+                return;
+            }
+
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('results-container').style.display = 'none';
+
+            fetch('/run_analysis', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    numeric: selectedNumericVars,
+                    categorical: selectedCategoricalVars
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('loading').style.display = 'none';
+
+                if (data.success) {
+                    displayResults(data.results, data.table);
+                } else {
+                    alert('分析失败：' + data.error);
+                }
+            })
+            .catch(error => {
+                document.getElementById('loading').style.display = 'none';
+                console.error('Error:', error);
+                alert('分析失败');
+            });
+        }
+
+        // 显示结果
+        function displayResults(results, table) {
+            let resultText = '统计分析结果\n' + '='.repeat(80) + '\n\n';
+
+            for (const [varName, result] of Object.entries(results)) {
+                if (result.type === 'numerical') {
+                    resultText += formatNumericalResult(result);
+                } else {
+                    resultText += formatCategoricalResult(result);
+                }
+            }
+
+            document.getElementById('results-text').textContent = resultText;
+
+            // 显示三线表
+            if (table.data && table.data.length > 0) {
+                const tableBody = document.getElementById('table-body');
+                tableBody.innerHTML = '';
+
+                table.data.forEach(row => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${row.variables}</td>
+                        <td>${row.level}</td>
+                        <td>${row.group0}</td>
+                        <td>${row.group1}</td>
+                        <td>${row.p}</td>
+                    `;
+                    tableBody.appendChild(tr);
+                });
+            }
+
+            document.getElementById('results-container').style.display = 'block';
+        }
+
+        // 格式化数值结果
+        function formatNumericalResult(result) {
+            let text = `变量: ${result.variable} (数值变量)\n`;
+            text += `第一组: n=${result.n1}, 均值=${result.mean1.toFixed(3)}, 标准差=${result.std1.toFixed(3)}\n`;
+            text += `第二组: n=${result.n2}, 均值=${result.mean2.toFixed(3)}, 标准差=${result.std2.toFixed(3)}\n`;
+            text += `正态性检验(组1): p=${result.p_norm1.toFixed(4)} (${result.normality1 ? '正态' : '非正态'})\n`;
+            text += `正态性检验(组2): p=${result.p_norm2.toFixed(4)} (${result.normality2 ? '正态' : '非正态'})\n`;
+            text += `方差齐性检验: p=${result.p_var.toFixed(4)} (${result.variance_homogeneity ? '齐性' : '非齐性'})\n`;
+            text += `检验方法: ${result.test_type}\n`;
+            text += `检验统计量: ${result.statistic.toFixed(4)}\n`;
+            text += `P值: ${result.p_value.toFixed(4)}\n`;
+            text += `统计显著性: ${result.p_value < 0.05 ? '显著' : '不显著'} (α=0.05)\n`;
+            text += '-'.repeat(60) + '\n\n';
+            return text;
+        }
+
+        // 格式化分类结果
+        function formatCategoricalResult(result) {
+            let text = `变量: ${result.variable} (分类变量)\n`;
+            text += `第一组: n=${result.n1}\n`;
+            text += `第二组: n=${result.n2}\n`;
+
+            result.categories.forEach(category => {
+                const freq1 = result.frequencies1[category] || 0;
+                const freq2 = result.frequencies2[category] || 0;
+                const perc1 = result.percentages1[category] || 0;
+                const perc2 = result.percentages2[category] || 0;
+                text += `  类别 ${category}: 组1=${freq1} (${perc1.toFixed(1)}%), 组2=${freq2} (${perc2.toFixed(1)}%)\n`;
+            });
+
+            text += `检验方法: ${result.test_type}\n`;
+            text += `卡方值: ${result.statistic.toFixed(4)}\n`;
+            text += `P值: ${result.p_value.toFixed(4)}\n`;
+            text += `统计显著性: ${result.p_value < 0.05 ? '显著' : '不显著'} (α=0.05)\n`;
+            text += '-'.repeat(60) + '\n\n';
+            return text;
+        }
+    </script>
+</body>
+</html>
